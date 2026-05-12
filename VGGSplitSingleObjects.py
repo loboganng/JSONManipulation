@@ -5,8 +5,8 @@ import glob
 import os
 
 # Configurações
-INPUT_DIR = Path(r'/Users/wolfgangneves/Documents/Estudos/UVV/2 Período/IA & Chatbot/Morango_Laranja_DatasetFruitNinja/DataAnnotation/Morango/VGG/Convertidos')
-OUTPUT_DIR = Path(r'/Users/wolfgangneves/Documents/Estudos/UVV/2 Período/IA & Chatbot/Morango_Laranja_DatasetFruitNinja/DataAnnotation/Morango/VGG/SingleObjects')
+INPUT_DIR = Path(r'./')
+OUTPUT_DIR = Path(r'./')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def split_via_single_objects(via_data):

@@ -2,8 +2,8 @@ import json
 from pathlib import Path
 
 INPUT_EXTENSIONS = {'.json'}
-INPUT_DIR = Path('/Users/wolfgangneves/Documents/Estudos/UVV/2 Período/IA & Chatbot/Morango_Laranja_DatasetFruitNinja/DataAnnotation/Morango/COCO')
-OUTPUT_DIR = Path('/Users/wolfgangneves/Documents/Estudos/UVV/2 Período/IA & Chatbot/Morango_Laranja_DatasetFruitNinja/DataAnnotation/Morango/VGG/Convertidos')
+INPUT_DIR = Path('./')
+OUTPUT_DIR = Path('./')
 DEFAULT_LABEL = 'object'
 
 

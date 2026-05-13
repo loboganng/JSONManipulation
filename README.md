@@ -4,7 +4,7 @@ Scripts em Python para conversão e reorganização de anotações de datasets n
 
 ## Arquivos do projeto
 
-### 1. `coco_to_vgg_converter.py`
+### 1. `COCOtoVGG.py`
 Converte arquivos no formato **COCO JSON** para **VGG/VIA JSON**.
 
 #### O que faz
@@ -23,14 +23,14 @@ Converte arquivos no formato **COCO JSON** para **VGG/VIA JSON**.
 
 #### Como usar
 ```bash
-python3 coco_to_vgg_converter.py
+python3 COCOtoVGG.py
 ```
 
 > Coloque o script na mesma pasta dos arquivos COCO `.json` que deseja converter.
 
 ---
 
-### 2. `via_split_single_objects.py`
+### 2. `VGGSplitSingleObjects.py`
 Separa cada anotação de um arquivo **VGG/VIA JSON** em um novo arquivo contendo **apenas 1 objeto**.
 
 #### O que faz
@@ -52,7 +52,7 @@ Se uma imagem tiver 3 objetos anotados, serão gerados arquivos como:
 
 #### Como usar
 ```bash
-python3 via_split_single_objects.py
+python3 VGGSplitSingleObjects.py
 ```
 
 > Coloque o script na mesma pasta dos arquivos VIA `.json` que deseja processar.
@@ -61,8 +61,8 @@ python3 via_split_single_objects.py
 
 ## Fluxo sugerido
 
-1. Converter arquivos COCO para VGG/VIA com `coco_to_vgg_converter.py`
-2. Separar cada objeto individual com `via_split_single_objects.py`
+1. Converter arquivos COCO para VGG/VIA com `COCOtoVGG.py`
+2. Separar cada objeto individual com `VGGSplitSingleObjects.py`
 
 ---
 

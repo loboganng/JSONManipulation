@@ -1,90 +1,135 @@
-
 import json
+from copy import deepcopy
 from pathlib import Path
-import glob
-import os
 
-# Configurações
-INPUT_DIR = Path(r'./')
+INPUT_DIR = Path('./')
 OUTPUT_DIR = Path(r'./')
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-def split_via_single_objects(via_data):
-    """Separa cada anotação em um arquivo individual mantendo a integridade VIA"""
-    metadata = via_data['_via_img_metadata']
+
+def sanitize_filename(name: str) -> str:
+    return ''.join(c if c.isalnum() or c in ('-', '_') else '_' for c in name)
+
+
+def detect_format(data):
+    if isinstance(data, dict):
+        if '_via_img_metadata' in data:
+            return 'via_project'
+        sample_value = next(iter(data.values()), None)
+        if isinstance(sample_value, dict) and 'filename' in sample_value and 'regions' in sample_value:
+            return 'vgg_classic'
+    return None
+
+
+def split_via_project(via_data, source_name):
     total_files = 0
+    metadata = via_data.get('_via_img_metadata', {})
+    project_name = via_data.get('_via_settings', {}).get('project', {}).get('name', 'project')
 
     for image_key, img_data in metadata.items():
-        filename = img_data['filename']
+        filename = img_data.get('filename', 'unknown')
         regions = img_data.get('regions', [])
 
         if not regions:
-            print(f'⚠️  Imagem {filename}: sem regiões (pulando)')
+            print(f'⚠️  {filename}: sem regiões (pulando)')
             continue
 
-        original_project_name = via_data['_via_settings']['project']['name']
+        for region_idx, region in enumerate(regions, start=1):
+            single_file = deepcopy(via_data)
+            single_file['_via_img_metadata'] = {
+                image_key: {
+                    **deepcopy(img_data),
+                    'regions': [deepcopy(region)]
+                }
+            }
+            single_file.setdefault('_via_settings', {}).setdefault('project', {})['name'] = f'{project_name}_{filename}_obj{region_idx}'
 
-        for region_idx, region in enumerate(regions):
-            # Deep copy preservando TODA estrutura
-            single_via = json.loads(json.dumps(via_data))
+            output_name = f'{sanitize_filename(Path(filename).stem)}_obj{region_idx}.json'
+            output_path = OUTPUT_DIR / output_name
+            with output_path.open('w', encoding='utf-8') as f:
+                json.dump(single_file, f, ensure_ascii=False, indent=2)
 
-            # Mantém APENAS esta região
-            single_via['_via_img_metadata'][image_key]['regions'] = [region]
-
-            # Remove outras imagens do metadata (mantém integridade)
-            single_via['_via_img_metadata'] = {image_key: single_via['_via_img_metadata'][image_key]}
-
-            # Nome descritivo do projeto
-            single_via['_via_settings']['project']['name'] = f"{original_project_name}_{filename}_obj{region_idx+1}"
-
-            # Nome do arquivo: IMG_5022.JPG_obj1.json
-            safe_filename = filename.replace('.', '_')
-            output_filename = f"{safe_filename}_obj{region_idx+1}.json"
-            output_path = OUTPUT_DIR / output_filename
-
-            # Salva mantendo encoding UTF-8 e indentação
-            with open(output_path, 'w', encoding='utf-8') as f:
-                json.dump(single_via, f, ensure_ascii=False, indent=2)
-
-            label = region['region_attributes'].get('label', 'unknown')
-            print(f'✅ {output_filename} <- {filename} [{label}] região {region_idx+1}/{len(regions)}')
+            label = region.get('region_attributes', {}).get('label', 'unknown')
+            print(f'✅ {output_name} <- {source_name} [{label}]')
             total_files += 1
 
     return total_files
 
-def main():
-    """Processa TODOS os arquivos VIA JSON na pasta atual"""  
-    via_files = list(INPUT_DIR.glob('*.json')) + list(INPUT_DIR.glob('convertedFile*.json'))
 
-    if not via_files:
-        print('❌ Nenhum arquivo VIA JSON encontrado na pasta atual')
-        print('Coloque este script na pasta com os arquivos convertedFileX.json')
+def split_vgg_classic(vgg_data, source_name):
+    total_files = 0
+
+    for image_key, img_data in vgg_data.items():
+        if not isinstance(img_data, dict):
+            continue
+
+        filename = img_data.get('filename', 'unknown')
+        regions = img_data.get('regions', [])
+
+        if isinstance(regions, dict):
+            regions = list(regions.values())
+
+        if not regions:
+            print(f'⚠️  {filename}: sem regiões (pulando)')
+            continue
+
+        for region_idx, region in enumerate(regions, start=1):
+            single_entry = deepcopy(img_data)
+            single_entry['regions'] = [deepcopy(region)]
+            single_file = {image_key: single_entry}
+
+            output_name = f'{sanitize_filename(Path(filename).stem)}_obj{region_idx}.json'
+            output_path = OUTPUT_DIR / output_name
+            with output_path.open('w', encoding='utf-8') as f:
+                json.dump(single_file, f, ensure_ascii=False, indent=2)
+
+            label = region.get('region_attributes', {}).get('label', 'unknown')
+            print(f'✅ {output_name} <- {source_name} [{label}]')
+            total_files += 1
+
+    return total_files
+
+
+def process_file(input_file: Path):
+    with input_file.open('r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    detected = detect_format(data)
+
+    if detected == 'via_project':
+        return split_via_project(data, input_file.name)
+    if detected == 'vgg_classic':
+        return split_vgg_classic(data, input_file.name)
+
+    print(f'⏭️  {input_file.name}: formato não reconhecido como VIA/VGG')
+    return 0
+
+
+def main():
+    json_files = sorted(INPUT_DIR.glob('*.json'))
+
+    if not json_files:
+        print('❌ Nenhum arquivo JSON encontrado na pasta atual.')
         return
 
-    total_processed = 0
-    grand_total_files = 0
+    processed = 0
+    generated = 0
 
-    for input_file in via_files:
+    for input_file in json_files:
         try:
             print(f'\n🔄 Processando: {input_file.name}')
-            with open(input_file, 'r', encoding='utf-8') as f:
-                via_data = json.load(f)
-
-            if '_via_img_metadata' not in via_data:
-                print(f'  ⏭️  {input_file.name}: não é arquivo VIA (pulando)')
-                continue
-
-            files_generated = split_via_single_objects(via_data)
-            total_processed += 1
-            grand_total_files += files_generated
-
+            count = process_file(input_file)
+            if count > 0:
+                processed += 1
+                generated += count
         except Exception as e:
-            print(f'  ❌ Erro em {input_file.name}: {e}')
+            print(f'❌ Erro em {input_file.name}: {e}')
 
     print(f'\n🎉 CONCLUÍDO!')
     print(f'📁 Arquivos salvos em: {OUTPUT_DIR}')
-    print(f'📊 Processados: {total_processed} arquivos VIA')
-    print(f'📊 Gerados: {grand_total_files} arquivos com 1 objeto cada')
+    print(f'📊 Arquivos processados: {processed}')
+    print(f'📊 Arquivos gerados: {generated}')
+
 
 if __name__ == '__main__':
     main()
